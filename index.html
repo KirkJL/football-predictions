@@ -127,7 +127,7 @@
           <button id="syncFootballButton" class="button button-primary" type="button">Sync teams and players</button>
           <p id="footballSyncMessage" role="status"></p>
         </section>
-
+        
         <form id="goldenBootOptionsForm" class="panel wide">
           <div class="section-title">
             <span>BOOT</span>
@@ -138,16 +138,9 @@
           </div>
           <label>
             Golden Boot player list
-            <textarea
-              id="goldenBootOptions"
-              rows="12"
-              placeholder="Erling Haaland&#10;Mohamed Salah&#10;Alexander Isak"
-              required
-            ></textarea>
+            <textarea id="goldenBootOptions" rows="12" required></textarea>
           </label>
-          <button class="button button-primary" type="submit">
-            Save Golden Boot list
-          </button>
+          <button class="button button-primary" type="submit">Save Golden Boot list</button>
           <p id="goldenBootOptionsMessage" role="status"></p>
         </form>
 
@@ -161,19 +154,11 @@
           </div>
           <label>
             Golden Glove goalkeeper list
-            <textarea
-              id="goldenGloveOptions"
-              rows="12"
-              placeholder="David Raya&#10;Alisson&#10;Jordan Pickford"
-              required
-            ></textarea>
+            <textarea id="goldenGloveOptions" rows="12" required></textarea>
           </label>
-          <button class="button button-primary" type="submit">
-            Save Golden Glove list
-          </button>
+          <button class="button button-primary" type="submit">Save Golden Glove list</button>
           <p id="goldenGloveOptionsMessage" role="status"></p>
         </form>
-
         <form id="resultsForm" class="panel wide"><h2>Current / final results</h2><p>Enter the current positions for live scoring. Tick final only when the official season results are settled.</p><div id="adminResultsFields" class="field-grid"></div><label><span><input id="resultsFinal" type="checkbox"> Mark these results as final</span></label><button class="button button-primary" type="submit">Save results and recalculate</button></form>
         <section class="panel wide"><h2>Entries</h2><div class="table-wrap"><table><thead><tr><th>Player</th><th>Email</th><th>Payment</th><th>Submitted</th><th></th></tr></thead><tbody id="adminEntriesBody"></tbody></table></div></section>
       </div>
