@@ -52,6 +52,7 @@
     $('refreshLeaderboard').addEventListener('click', loadLeaderboard);
     $('scheduleForm').addEventListener('submit', saveSchedule);
     $('syncFootballButton').addEventListener('click', syncFootballData);
+    $('playerOptionsForm').addEventListener('submit', e => saveOptions(e, 'player'));
     $('resultsForm').addEventListener('submit', saveResults);
   }
 
@@ -253,6 +254,7 @@
     $('adminEntriesBody').innerHTML = data.entries.map(e => `<tr><td>${escapeHtml(e.display_name)}</td><td>${escapeHtml(e.email || '')}</td><td>${escapeHtml(e.payment_status)}</td><td>${e.submitted_at ? formatDate(e.submitted_at) : 'No'}</td><td>${['paid','waived'].includes(e.payment_status) ? '' : `<button class="button button-ghost waive-button" data-entry="${e.id}">Waive</button>`}</td></tr>`).join('');
     qsa('.waive-button').forEach(b => b.addEventListener('click', () => waivePayment(Number(b.dataset.entry))));
     renderFootballSync(data.footballSync);
+    $('playerOptions').value = options.players.map(x => x.label).join('\n');
     data.results.forEach(r => {
       const name = (r.category === 'top4' || r.category === 'bottom3') ? `result_${r.category}_${r.position}` : `result_${r.category}`;
       const el = document.querySelector(`[name="${name}"]`);
@@ -346,6 +348,41 @@
     } finally {
       button.disabled = false;
       button.textContent = 'Sync teams and players';
+    }
+  }
+
+
+  async function saveOptions(event, type) {
+    event.preventDefault();
+
+    const textarea = type === 'player' ? $('playerOptions') : null;
+    if (!textarea) return;
+
+    const values = textarea.value
+      .split('\n')
+      .map(value => value.trim())
+      .filter(Boolean);
+
+    if (!values.length) {
+      $('playerOptionsMessage').textContent = 'Add at least one player.';
+      return;
+    }
+
+    try {
+      await api.put('/api/admin/options', {
+        type,
+        values
+      });
+
+      $('playerOptionsMessage').textContent =
+        `${values.length} players saved. They are now available in both award dropdowns.`;
+
+      await loadOptions();
+      await loadAdmin();
+      toast('Player list saved.');
+    } catch (error) {
+      $('playerOptionsMessage').textContent = error.message;
+      toast(error.message, true);
     }
   }
 
