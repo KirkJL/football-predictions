@@ -112,8 +112,21 @@
       <div class="page-heading"><div><p class="eyebrow">Control room</p><h1>Admin</h1></div></div>
       <div class="admin-grid">
         <form id="scheduleForm" class="panel"><h2>Season opening</h2><label>First match kickoff<input id="firstKickoffInput" type="datetime-local" required></label><p>The deadline is calculated automatically as one hour before kickoff.</p><button class="button button-primary" type="submit">Open predictions</button></form>
-        <form id="teamOptionsForm" class="panel"><h2>Team options</h2><label>One team per line<textarea id="teamOptions" rows="12" required></textarea></label><button class="button button-primary" type="submit">Save teams</button></form>
-        <form id="playerOptionsForm" class="panel"><h2>Player options</h2><label>One player per line<textarea id="playerOptions" rows="12" required></textarea></label><button class="button button-primary" type="submit">Save players</button></form>
+        <section class="panel wide">
+          <div class="section-title">
+            <span>API</span>
+            <div>
+              <h2>Football data</h2>
+              <p>Import Premier League teams, full squads, goalkeepers and Champions League teams from football-data.org.</p>
+            </div>
+          </div>
+          <div class="status-row"><span>Provider</span><strong>football-data.org</strong></div>
+          <div class="status-row"><span>Status</span><strong id="footballSyncStatus">Not synced</strong></div>
+          <div class="status-row"><span>Last sync</span><strong id="footballSyncTime">Never</strong></div>
+          <div class="status-row"><span>Imported</span><strong id="footballSyncCounts">0 teams · 0 players</strong></div>
+          <button id="syncFootballButton" class="button button-primary" type="button">Sync teams and players</button>
+          <p id="footballSyncMessage" role="status"></p>
+        </section>
         <form id="resultsForm" class="panel wide"><h2>Current / final results</h2><p>Enter the current positions for live scoring. Tick final only when the official season results are settled.</p><div id="adminResultsFields" class="field-grid"></div><label><span><input id="resultsFinal" type="checkbox"> Mark these results as final</span></label><button class="button button-primary" type="submit">Save results and recalculate</button></form>
         <section class="panel wide"><h2>Entries</h2><div class="table-wrap"><table><thead><tr><th>Player</th><th>Email</th><th>Payment</th><th>Submitted</th><th></th></tr></thead><tbody id="adminEntriesBody"></tbody></table></div></section>
       </div>
