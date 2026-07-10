@@ -11,7 +11,16 @@
   const $ = (id) => document.getElementById(id);
   const qsa = (selector) => [...document.querySelectorAll(selector)];
 
-  document.addEventListener('DOMContentLoaded', boot);
+  document.addEventListener('DOMContentLoaded', () => {
+    boot().catch(error => {
+      console.error('Application boot failed', error);
+      const toast = document.getElementById('toast');
+      if (toast) {
+        toast.textContent = `Startup error: ${error.message}`;
+        toast.classList.add('show', 'error');
+      }
+    });
+  });
 
   async function boot() {
     msalApp = new msal.PublicClientApplication({
@@ -83,14 +92,33 @@
 
   async function loadAuthenticatedState() {
     try {
+      // Authentication is established by MSAL before any football-data request.
+      // A provider/database sync failure must never make the user appear signed out.
       me = await api.get('/api/me');
       qsa('.admin-only').forEach(el => el.hidden = !me.user.isAdmin);
-      await loadOptions();
       renderEntryState();
-      await loadMyPredictions();
-      await Promise.all([loadLeaderboard(), loadLive()]);
-      if (me.user.isAdmin) await loadAdmin();
-    } catch (error) { toast(error.message, true); }
+
+      try {
+        await loadOptions();
+        await loadMyPredictions();
+      } catch (error) {
+        console.error('Prediction options failed to load', error);
+        toast(`Signed in, but football options failed: ${error.message}`, true);
+      }
+
+      await Promise.allSettled([loadLeaderboard(), loadLive()]);
+      if (me.user.isAdmin) {
+        try {
+          await loadAdmin();
+        } catch (error) {
+          console.error('Admin data failed to load', error);
+          toast(`Signed in, but admin data failed: ${error.message}`, true);
+        }
+      }
+    } catch (error) {
+      console.error('Authenticated profile failed to load', error);
+      toast(error.message, true);
+    }
   }
 
   function showView(name) {
