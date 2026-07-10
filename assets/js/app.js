@@ -50,11 +50,15 @@
     $('payButton').addEventListener('click', startPayment);
     $('predictionForm').addEventListener('submit', savePredictions);
     $('refreshLeaderboard').addEventListener('click', loadLeaderboard);
-    $('scheduleForm').addEventListener('submit', saveSchedule);
-    $('syncFootballButton').addEventListener('click', syncFootballData);
-    $('goldenBootOptionsForm').addEventListener('submit', e => saveAwardOptions(e, 'golden_boot_player'));
-    $('goldenGloveOptionsForm').addEventListener('submit', e => saveAwardOptions(e, 'golden_glove_player'));
-    $('resultsForm').addEventListener('submit', saveResults);
+    $('scheduleForm')?.addEventListener('submit', saveSchedule);
+    $('syncFootballButton')?.addEventListener('click', syncFootballData);
+    $('goldenBootOptionsForm')?.addEventListener('submit', event =>
+      saveAwardOptions(event, 'golden_boot_player')
+    );
+    $('goldenGloveOptionsForm')?.addEventListener('submit', event =>
+      saveAwardOptions(event, 'golden_glove_player')
+    );
+    $('resultsForm')?.addEventListener('submit', saveResults);
   }
 
   async function signIn() {
@@ -147,14 +151,8 @@
     fillSelect(document.querySelector('[name="fa_cup"]'), options.englishCupTeams || options.teams);
     fillSelect(document.querySelector('[name="league_cup"]'), options.englishCupTeams || options.teams);
     fillSelect(document.querySelector('[name="champions_league"]'), options.championsLeagueTeams || options.teams);
-    fillSelect(
-      document.querySelector('[name="golden_boot"]'),
-      options.goldenBootPlayers || options.players || []
-    );
-    fillSelect(
-      document.querySelector('[name="golden_glove"]'),
-      options.goldenGlovePlayers || options.goalkeepers || []
-    );
+    fillSelect(document.querySelector('[name="golden_boot"]'), options.goldenBootPlayers || options.players || []);
+    fillSelect(document.querySelector('[name="golden_glove"]'), options.goldenGlovePlayers || options.goalkeepers || []);
     renderAdminResultFields();
   }
 
@@ -258,52 +256,41 @@
   async function loadAdmin() {
     const data = await api.get('/api/admin/overview');
     if (data.competition.first_kickoff_at) $('firstKickoffInput').value = toLocalInput(data.competition.first_kickoff_at);
-    $('adminEntriesBody').innerHTML = data.entries.map(entry => {
-      const paymentAction = ['paid','waived'].includes(entry.payment_status)
-        ? ''
-        : `<button class="button button-ghost waive-button" data-entry="${entry.id}">Waive</button>`;
+    $('adminEntriesBody').innerHTML = data.entries.map(entry => `
+      <tr>
+        <td>${escapeHtml(entry.display_name)}</td>
+        <td>${escapeHtml(entry.email || '')}</td>
+        <td>${escapeHtml(entry.payment_status)}</td>
+        <td>${entry.submitted_at ? formatDate(entry.submitted_at) : 'No'}</td>
+        <td>
+          ${['paid','waived'].includes(entry.payment_status)
+            ? ''
+            : `<button class="button button-ghost waive-button" data-entry="${entry.id}">Waive</button>`}
+          ${entry.submitted_at
+            ? `<button class="button button-ghost reset-predictions-button" data-entry="${entry.id}">Remove test submission</button>`
+            : ''}
+        </td>
+      </tr>
+    `).join('');
 
-      const resetAction = entry.submitted_at
-        ? `<button class="button button-ghost reset-predictions-button" data-entry="${entry.id}" data-name="${escapeHtml(entry.display_name)}">Remove test submission</button>`
-        : '';
+    qsa('.waive-button').forEach(button =>
+      button.addEventListener('click', () => waivePayment(Number(button.dataset.entry)))
+    );
 
-      return `
-        <tr>
-          <td>${escapeHtml(entry.display_name)}</td>
-          <td>${escapeHtml(entry.email || '')}</td>
-          <td>${escapeHtml(entry.payment_status)}</td>
-          <td>${entry.submitted_at ? formatDate(entry.submitted_at) : 'No'}</td>
-          <td>
-            <div class="admin-entry-actions">
-              ${paymentAction}
-              ${resetAction}
-            </div>
-          </td>
-        </tr>
-      `;
-    }).join('');
-
-    qsa('.waive-button').forEach(button => {
-      button.addEventListener('click', () =>
-        waivePayment(Number(button.dataset.entry))
-      );
-    });
-
-    qsa('.reset-predictions-button').forEach(button => {
-      button.addEventListener('click', () =>
-        resetPredictions(
-          Number(button.dataset.entry),
-          button.dataset.name || 'this player'
-        )
-      );
-    });
+    qsa('.reset-predictions-button').forEach(button =>
+      button.addEventListener('click', () => resetPredictions(Number(button.dataset.entry)))
+    );
     renderFootballSync(data.footballSync);
-    $('goldenBootOptions').value = (options.goldenBootPlayers || options.players || [])
-      .map(option => option.label)
-      .join('\n');
-    $('goldenGloveOptions').value = (options.goldenGlovePlayers || options.goalkeepers || [])
-      .map(option => option.label)
-      .join('\n');
+    if ($('goldenBootOptions')) {
+      $('goldenBootOptions').value = (options.goldenBootPlayers || options.players || [])
+        .map(option => option.label)
+        .join('\n');
+    }
+    if ($('goldenGloveOptions')) {
+      $('goldenGloveOptions').value = (options.goldenGlovePlayers || options.goalkeepers || [])
+        .map(option => option.label)
+        .join('\n');
+    }
     data.results.forEach(r => {
       const name = (r.category === 'top4' || r.category === 'bottom3') ? `result_${r.category}_${r.position}` : `result_${r.category}`;
       const el = document.querySelector(`[name="${name}"]`);
@@ -405,17 +392,9 @@
     event.preventDefault();
 
     const isBoot = type === 'golden_boot_player';
-    const textarea = isBoot
-      ? $('goldenBootOptions')
-      : $('goldenGloveOptions');
-
-    const message = isBoot
-      ? $('goldenBootOptionsMessage')
-      : $('goldenGloveOptionsMessage');
-
-    const label = isBoot
-      ? 'Golden Boot'
-      : 'Golden Glove';
+    const textarea = isBoot ? $('goldenBootOptions') : $('goldenGloveOptions');
+    const message = isBoot ? $('goldenBootOptionsMessage') : $('goldenGloveOptionsMessage');
+    const label = isBoot ? 'Golden Boot' : 'Golden Glove';
 
     const values = textarea.value
       .split('\n')
@@ -428,17 +407,10 @@
     }
 
     try {
-      await api.put('/api/admin/options', {
-        type,
-        options: values
-      });
-
-      message.textContent =
-        `${values.length} ${label} options saved.`;
-
+      await api.put('/api/admin/options', { type, values });
+      message.textContent = `${values.length} ${label} options saved.`;
       await loadOptions();
       await loadAdmin();
-
       toast(`${label} list saved.`);
     } catch (error) {
       message.textContent = error.message;
@@ -461,13 +433,10 @@
   }
 
 
-  async function resetPredictions(entryId, displayName) {
-    const confirmed = confirm(
-      `Remove the saved predictions for ${displayName}?\n\n` +
-      'Their payment or waiver status will stay unchanged, and they can submit again.'
-    );
-
-    if (!confirmed) return;
+  async function resetPredictions(entryId) {
+    if (!confirm('Remove this test submission? The payment/waiver status will remain.')) {
+      return;
+    }
 
     try {
       await api.post('/api/admin/predictions/reset', { entryId });
