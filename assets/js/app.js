@@ -293,17 +293,54 @@
     const button = $('syncFootballButton');
     button.disabled = true;
     button.textContent = 'Syncing…';
-    $('footballSyncMessage').textContent = 'Downloading current teams and squads. This can take a few seconds.';
+
     try {
-      const result = await api.post('/api/admin/sync-football-data', {});
-      $('footballSyncMessage').textContent =
-        `Imported ${result.premierLeagueTeams} Premier League teams, ` +
-        `${result.players} players and ${result.goalkeepers} goalkeepers.` +
-        (result.warnings?.length ? ` ${result.warnings.join(' ')}` : '');
-      toast('Football data synced.');
+      let pass = 0;
+      let complete = false;
+
+      while (!complete && pass < 6) {
+        pass++;
+        $('footballSyncMessage').textContent =
+          pass === 1
+            ? 'Importing teams and the first squad batch…'
+            : `Importing the next squad batch (pass ${pass})…`;
+
+        const result = await api.post('/api/admin/sync-football-data', {});
+        complete = Boolean(result.synced);
+
+        $('footballSyncStatus').textContent = String(result.status || 'running').toUpperCase();
+        $('footballSyncCounts').textContent =
+          `${result.premierLeagueTeams || 0} PL teams · ` +
+          `${result.championsLeagueTeams || 0} UCL teams · ` +
+          `${result.players || 0} players · ${result.goalkeepers || 0} keepers`;
+
+        if (complete) {
+          $('footballSyncMessage').textContent =
+            `Sync complete: ${result.players} players and ${result.goalkeepers} goalkeepers imported.` +
+            (result.warnings?.length ? ` ${result.warnings.join(' ')}` : '');
+          toast('Football squads synced.');
+          break;
+        }
+
+        $('footballSyncMessage').textContent =
+          `${result.players || 0} players imported. ` +
+          `${result.remainingTeams || 0} teams remain. ` +
+          `Waiting ${result.retryAfterSeconds || 65} seconds for the API rate limit…`;
+
+        await new Promise(resolve =>
+          setTimeout(resolve, (result.retryAfterSeconds || 65) * 1000)
+        );
+      }
+
       await loadOptions();
       await loadAdmin();
+
+      if (!complete) {
+        $('footballSyncMessage').textContent =
+          'The sync paused before completion. Click “Sync teams and players” again to continue.';
+      }
     } catch (error) {
+      console.error('Football squad sync failed', error);
       $('footballSyncMessage').textContent = error.message;
       toast(error.message, true);
     } finally {
