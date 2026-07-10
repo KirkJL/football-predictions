@@ -42,8 +42,7 @@
     $('predictionForm').addEventListener('submit', savePredictions);
     $('refreshLeaderboard').addEventListener('click', loadLeaderboard);
     $('scheduleForm').addEventListener('submit', saveSchedule);
-    $('teamOptionsForm').addEventListener('submit', e => saveOptions(e, 'team'));
-    $('playerOptionsForm').addEventListener('submit', e => saveOptions(e, 'player'));
+    $('syncFootballButton').addEventListener('click', syncFootballData);
     $('resultsForm').addEventListener('submit', saveResults);
   }
 
@@ -115,8 +114,11 @@
     const bottom3 = ['18th', '19th', '20th'];
     $('top4Fields').innerHTML = top4.map((label, i) => selectHtml(`top4_${i + 1}`, label, options.teams)).join('');
     $('bottom3Fields').innerHTML = bottom3.map((label, i) => selectHtml(`bottom3_${i + 1}`, label, options.teams)).join('');
-    ['fa_cup','league_cup','champions_league'].forEach(name => fillSelect(document.querySelector(`[name="${name}"]`), options.teams));
-    ['golden_boot','golden_glove'].forEach(name => fillSelect(document.querySelector(`[name="${name}"]`), options.players));
+    fillSelect(document.querySelector('[name="fa_cup"]'), options.englishCupTeams || options.teams);
+    fillSelect(document.querySelector('[name="league_cup"]'), options.englishCupTeams || options.teams);
+    fillSelect(document.querySelector('[name="champions_league"]'), options.championsLeagueTeams || options.teams);
+    fillSelect(document.querySelector('[name="golden_boot"]'), options.players);
+    fillSelect(document.querySelector('[name="golden_glove"]'), options.goalkeepers || options.players);
     renderAdminResultFields();
   }
 
@@ -127,10 +129,10 @@
       ...[1,2,3,4].map(i => ({ name:`result_top4_${i}`, label:`Top four #${i}`, list:options.teams })),
       ...[1,2,3].map(i => ({ name:`result_bottom3_${i}`, label:`Bottom three #${i}`, list:options.teams })),
       { name:'result_golden_boot', label:'Golden Boot', list:options.players },
-      { name:'result_golden_glove', label:'Golden Glove', list:options.players },
-      { name:'result_fa_cup', label:'FA Cup', list:options.teams },
-      { name:'result_league_cup', label:'League Cup', list:options.teams },
-      { name:'result_champions_league', label:'Champions League', list:options.teams }
+      { name:'result_golden_glove', label:'Golden Glove', list:options.goalkeepers || options.players },
+      { name:'result_fa_cup', label:'FA Cup', list:options.englishCupTeams || options.teams },
+      { name:'result_league_cup', label:'League Cup', list:options.englishCupTeams || options.teams },
+      { name:'result_champions_league', label:'Champions League', list:options.championsLeagueTeams || options.teams }
     ];
     host.innerHTML = fields.map(f => selectHtml(f.name, f.label, f.list)).join('');
   }
@@ -222,8 +224,7 @@
     if (data.competition.first_kickoff_at) $('firstKickoffInput').value = toLocalInput(data.competition.first_kickoff_at);
     $('adminEntriesBody').innerHTML = data.entries.map(e => `<tr><td>${escapeHtml(e.display_name)}</td><td>${escapeHtml(e.email || '')}</td><td>${escapeHtml(e.payment_status)}</td><td>${e.submitted_at ? formatDate(e.submitted_at) : 'No'}</td><td>${['paid','waived'].includes(e.payment_status) ? '' : `<button class="button button-ghost waive-button" data-entry="${e.id}">Waive</button>`}</td></tr>`).join('');
     qsa('.waive-button').forEach(b => b.addEventListener('click', () => waivePayment(Number(b.dataset.entry))));
-    $('teamOptions').value = options.teams.map(x => x.label).join('\n');
-    $('playerOptions').value = options.players.map(x => x.label).join('\n');
+    renderFootballSync(data.footballSync);
     data.results.forEach(r => {
       const name = (r.category === 'top4' || r.category === 'bottom3') ? `result_${r.category}_${r.position}` : `result_${r.category}`;
       const el = document.querySelector(`[name="${name}"]`);
@@ -242,12 +243,45 @@
     } catch (error) { toast(error.message, true); }
   }
 
-  async function saveOptions(event, type) {
-    event.preventDefault();
-    const source = type === 'team' ? $('teamOptions') : $('playerOptions');
-    const list = source.value.split(/\r?\n/).map(x => x.trim()).filter(Boolean);
-    try { await api.put('/api/admin/options', { type, options: list }); toast(`${type} options saved.`); await loadOptions(); }
-    catch (error) { toast(error.message, true); }
+
+
+  function renderFootballSync(sync) {
+    if (!sync) {
+      $('footballSyncStatus').textContent = 'Not synced';
+      $('footballSyncTime').textContent = 'Never';
+      $('footballSyncCounts').textContent = '0 teams · 0 players';
+      return;
+    }
+    $('footballSyncStatus').textContent = String(sync.status || 'unknown').toUpperCase();
+    $('footballSyncTime').textContent = sync.completed_at ? formatDate(sync.completed_at) : 'In progress';
+    $('footballSyncCounts').textContent =
+      `${sync.premier_league_team_count || 0} PL teams · ` +
+      `${sync.champions_league_team_count || 0} UCL teams · ` +
+      `${sync.player_count || 0} players · ${sync.goalkeeper_count || 0} keepers`;
+    $('footballSyncMessage').textContent = sync.error_message || '';
+  }
+
+  async function syncFootballData() {
+    const button = $('syncFootballButton');
+    button.disabled = true;
+    button.textContent = 'Syncing…';
+    $('footballSyncMessage').textContent = 'Downloading current teams and squads. This can take a few seconds.';
+    try {
+      const result = await api.post('/api/admin/sync-football-data', {});
+      $('footballSyncMessage').textContent =
+        `Imported ${result.premierLeagueTeams} Premier League teams, ` +
+        `${result.players} players and ${result.goalkeepers} goalkeepers.` +
+        (result.warnings?.length ? ` ${result.warnings.join(' ')}` : '');
+      toast('Football data synced.');
+      await loadOptions();
+      await loadAdmin();
+    } catch (error) {
+      $('footballSyncMessage').textContent = error.message;
+      toast(error.message, true);
+    } finally {
+      button.disabled = false;
+      button.textContent = 'Sync teams and players';
+    }
   }
 
   async function saveResults(event) {
