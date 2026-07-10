@@ -9,7 +9,13 @@ window.Api = class Api {
     const headers = new Headers(options.headers || {});
     headers.set('Authorization', `Bearer ${token}`);
     if (options.body && !headers.has('Content-Type')) headers.set('Content-Type', 'application/json');
-    const response = await fetch(`${this.baseUrl}${path}`, { ...options, headers });
+    const url = `${this.baseUrl}${path}`;
+    let response;
+    try {
+      response = await fetch(url, { ...options, headers });
+    } catch (error) {
+      throw new Error(`Could not reach the API (${url}). Check the browser console for the blocked request details.`);
+    }
     let data = {};
     try { data = await response.json(); } catch { data = { error: 'The server returned an unreadable response.' }; }
     if (!response.ok) {
