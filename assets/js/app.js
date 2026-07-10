@@ -258,8 +258,45 @@
   async function loadAdmin() {
     const data = await api.get('/api/admin/overview');
     if (data.competition.first_kickoff_at) $('firstKickoffInput').value = toLocalInput(data.competition.first_kickoff_at);
-    $('adminEntriesBody').innerHTML = data.entries.map(e => `<tr><td>${escapeHtml(e.display_name)}</td><td>${escapeHtml(e.email || '')}</td><td>${escapeHtml(e.payment_status)}</td><td>${e.submitted_at ? formatDate(e.submitted_at) : 'No'}</td><td>${['paid','waived'].includes(e.payment_status) ? '' : `<button class="button button-ghost waive-button" data-entry="${e.id}">Waive</button>`}</td></tr>`).join('');
-    qsa('.waive-button').forEach(b => b.addEventListener('click', () => waivePayment(Number(b.dataset.entry))));
+    $('adminEntriesBody').innerHTML = data.entries.map(entry => {
+      const paymentAction = ['paid','waived'].includes(entry.payment_status)
+        ? ''
+        : `<button class="button button-ghost waive-button" data-entry="${entry.id}">Waive</button>`;
+
+      const resetAction = entry.submitted_at
+        ? `<button class="button button-ghost reset-predictions-button" data-entry="${entry.id}" data-name="${escapeHtml(entry.display_name)}">Remove test submission</button>`
+        : '';
+
+      return `
+        <tr>
+          <td>${escapeHtml(entry.display_name)}</td>
+          <td>${escapeHtml(entry.email || '')}</td>
+          <td>${escapeHtml(entry.payment_status)}</td>
+          <td>${entry.submitted_at ? formatDate(entry.submitted_at) : 'No'}</td>
+          <td>
+            <div class="admin-entry-actions">
+              ${paymentAction}
+              ${resetAction}
+            </div>
+          </td>
+        </tr>
+      `;
+    }).join('');
+
+    qsa('.waive-button').forEach(button => {
+      button.addEventListener('click', () =>
+        waivePayment(Number(button.dataset.entry))
+      );
+    });
+
+    qsa('.reset-predictions-button').forEach(button => {
+      button.addEventListener('click', () =>
+        resetPredictions(
+          Number(button.dataset.entry),
+          button.dataset.name || 'this player'
+        )
+      );
+    });
     renderFootballSync(data.footballSync);
     $('goldenBootOptions').value = (options.goldenBootPlayers || options.players || [])
       .map(option => option.label)
@@ -421,6 +458,29 @@
     };
     try { await api.put('/api/admin/results', payload); toast('Results saved and leaderboard recalculated.'); await loadLeaderboard(); }
     catch (error) { toast(error.message, true); }
+  }
+
+
+  async function resetPredictions(entryId, displayName) {
+    const confirmed = confirm(
+      `Remove the saved predictions for ${displayName}?\n\n` +
+      'Their payment or waiver status will stay unchanged, and they can submit again.'
+    );
+
+    if (!confirmed) return;
+
+    try {
+      await api.post('/api/admin/predictions/reset', { entryId });
+      toast('Test submission removed.');
+      await loadAdmin();
+
+      if (me?.entry?.id === entryId) {
+        await loadMyPredictions();
+        renderEntryState();
+      }
+    } catch (error) {
+      toast(error.message, true);
+    }
   }
 
   async function waivePayment(entryId) {
