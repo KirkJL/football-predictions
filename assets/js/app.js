@@ -52,7 +52,8 @@
     $('refreshLeaderboard').addEventListener('click', loadLeaderboard);
     $('scheduleForm').addEventListener('submit', saveSchedule);
     $('syncFootballButton').addEventListener('click', syncFootballData);
-    $('playerOptionsForm').addEventListener('submit', e => saveOptions(e, 'player'));
+    $('goldenBootOptionsForm').addEventListener('submit', e => saveAwardOptions(e, 'golden_boot_player'));
+    $('goldenGloveOptionsForm').addEventListener('submit', e => saveAwardOptions(e, 'golden_glove_player'));
     $('resultsForm').addEventListener('submit', saveResults);
   }
 
@@ -146,8 +147,14 @@
     fillSelect(document.querySelector('[name="fa_cup"]'), options.englishCupTeams || options.teams);
     fillSelect(document.querySelector('[name="league_cup"]'), options.englishCupTeams || options.teams);
     fillSelect(document.querySelector('[name="champions_league"]'), options.championsLeagueTeams || options.teams);
-    fillSelect(document.querySelector('[name="golden_boot"]'), options.players);
-    fillSelect(document.querySelector('[name="golden_glove"]'), options.goalkeepers || options.players);
+    fillSelect(
+      document.querySelector('[name="golden_boot"]'),
+      options.goldenBootPlayers || options.players || []
+    );
+    fillSelect(
+      document.querySelector('[name="golden_glove"]'),
+      options.goldenGlovePlayers || options.goalkeepers || []
+    );
     renderAdminResultFields();
   }
 
@@ -157,8 +164,8 @@
     const fields = [
       ...[1,2,3,4].map(i => ({ name:`result_top4_${i}`, label:`Top four #${i}`, list:options.teams })),
       ...[1,2,3].map(i => ({ name:`result_bottom3_${i}`, label:`Bottom three #${i}`, list:options.teams })),
-      { name:'result_golden_boot', label:'Golden Boot', list:options.players },
-      { name:'result_golden_glove', label:'Golden Glove', list:options.goalkeepers || options.players },
+      { name:'result_golden_boot', label:'Golden Boot', list:options.goldenBootPlayers || options.players || [] },
+      { name:'result_golden_glove', label:'Golden Glove', list:options.goldenGlovePlayers || options.goalkeepers || [] },
       { name:'result_fa_cup', label:'FA Cup', list:options.englishCupTeams || options.teams },
       { name:'result_league_cup', label:'League Cup', list:options.englishCupTeams || options.teams },
       { name:'result_champions_league', label:'Champions League', list:options.championsLeagueTeams || options.teams }
@@ -254,7 +261,12 @@
     $('adminEntriesBody').innerHTML = data.entries.map(e => `<tr><td>${escapeHtml(e.display_name)}</td><td>${escapeHtml(e.email || '')}</td><td>${escapeHtml(e.payment_status)}</td><td>${e.submitted_at ? formatDate(e.submitted_at) : 'No'}</td><td>${['paid','waived'].includes(e.payment_status) ? '' : `<button class="button button-ghost waive-button" data-entry="${e.id}">Waive</button>`}</td></tr>`).join('');
     qsa('.waive-button').forEach(b => b.addEventListener('click', () => waivePayment(Number(b.dataset.entry))));
     renderFootballSync(data.footballSync);
-    $('playerOptions').value = options.players.map(x => x.label).join('\n');
+    $('goldenBootOptions').value = (options.goldenBootPlayers || options.players || [])
+      .map(option => option.label)
+      .join('\n');
+    $('goldenGloveOptions').value = (options.goldenGlovePlayers || options.goalkeepers || [])
+      .map(option => option.label)
+      .join('\n');
     data.results.forEach(r => {
       const name = (r.category === 'top4' || r.category === 'bottom3') ? `result_${r.category}_${r.position}` : `result_${r.category}`;
       const el = document.querySelector(`[name="${name}"]`);
@@ -352,11 +364,21 @@
   }
 
 
-  async function saveOptions(event, type) {
+  async function saveAwardOptions(event, type) {
     event.preventDefault();
 
-    const textarea = type === 'player' ? $('playerOptions') : null;
-    if (!textarea) return;
+    const isBoot = type === 'golden_boot_player';
+    const textarea = isBoot
+      ? $('goldenBootOptions')
+      : $('goldenGloveOptions');
+
+    const message = isBoot
+      ? $('goldenBootOptionsMessage')
+      : $('goldenGloveOptionsMessage');
+
+    const label = isBoot
+      ? 'Golden Boot'
+      : 'Golden Glove';
 
     const values = textarea.value
       .split('\n')
@@ -364,24 +386,25 @@
       .filter(Boolean);
 
     if (!values.length) {
-      $('playerOptionsMessage').textContent = 'Add at least one player.';
+      message.textContent = `Add at least one ${label} option.`;
       return;
     }
 
     try {
       await api.put('/api/admin/options', {
         type,
-        values
+        options: values
       });
 
-      $('playerOptionsMessage').textContent =
-        `${values.length} players saved. They are now available in both award dropdowns.`;
+      message.textContent =
+        `${values.length} ${label} options saved.`;
 
       await loadOptions();
       await loadAdmin();
-      toast('Player list saved.');
+
+      toast(`${label} list saved.`);
     } catch (error) {
-      $('playerOptionsMessage').textContent = error.message;
+      message.textContent = error.message;
       toast(error.message, true);
     }
   }
