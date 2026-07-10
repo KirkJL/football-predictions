@@ -408,13 +408,28 @@
 
     try {
       await api.put('/api/admin/options', { type, values });
+      updateAwardOptions(type, values);
+      renderPredictionFields();
       message.textContent = `${values.length} ${label} options saved.`;
-      await loadOptions();
-      await loadAdmin();
       toast(`${label} list saved.`);
+
+      loadAdmin().catch(error => {
+        console.error(`${label} admin refresh failed`, error);
+      });
     } catch (error) {
       message.textContent = error.message;
       toast(error.message, true);
+    }
+  }
+
+  function updateAwardOptions(type, values) {
+    const list = values.map(label => ({ key: slugify(label), label }));
+    if (type === 'golden_boot_player') {
+      options.goldenBootPlayers = list;
+      options.players = list;
+    } else {
+      options.goldenGlovePlayers = list;
+      options.goalkeepers = list;
     }
   }
 
@@ -464,6 +479,7 @@
   }
   function formatDate(value) { return new Intl.DateTimeFormat('en-GB',{dateStyle:'medium',timeStyle:'short',timeZone:'Europe/London'}).format(new Date(value)); }
   function toLocalInput(value) { const d = new Date(value); const offset = d.getTimezoneOffset(); return new Date(d.getTime()-offset*60000).toISOString().slice(0,16); }
+  function slugify(value) { return String(value || '').normalize('NFKD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/&/g, ' and ').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 100); }
   function escapeHtml(value) { return String(value ?? '').replace(/[&<>'"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c])); }
   function toast(message, isError=false) { const el=$('toast'); el.textContent=message; el.className=`toast show${isError?' error':''}`; clearTimeout(toast.timer); toast.timer=setTimeout(()=>el.className='toast',4200); }
 })();
