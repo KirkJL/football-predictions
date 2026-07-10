@@ -127,21 +127,51 @@
           <button id="syncFootballButton" class="button button-primary" type="button">Sync teams and players</button>
           <p id="footballSyncMessage" role="status"></p>
         </section>
-        
-        <form id="playerOptionsForm" class="panel wide">
+
+        <form id="goldenBootOptionsForm" class="panel wide">
           <div class="section-title">
-            <span>PLAYERS</span>
+            <span>BOOT</span>
             <div>
-              <h2>Golden Boot / Golden Glove options</h2>
-              <p>Add one player per line. The same list is used for both dropdowns.</p>
+              <h2>Golden Boot options</h2>
+              <p>Add eligible outfield players only, one per line.</p>
             </div>
           </div>
           <label>
-            Player list
-            <textarea id="playerOptions" rows="12" placeholder="Erling Haaland&#10;Mohamed Salah&#10;David Raya" required></textarea>
+            Golden Boot player list
+            <textarea
+              id="goldenBootOptions"
+              rows="12"
+              placeholder="Erling Haaland&#10;Mohamed Salah&#10;Alexander Isak"
+              required
+            ></textarea>
           </label>
-          <button class="button button-primary" type="submit">Save player list</button>
-          <p id="playerOptionsMessage" role="status"></p>
+          <button class="button button-primary" type="submit">
+            Save Golden Boot list
+          </button>
+          <p id="goldenBootOptionsMessage" role="status"></p>
+        </form>
+
+        <form id="goldenGloveOptionsForm" class="panel wide">
+          <div class="section-title">
+            <span>GLOVE</span>
+            <div>
+              <h2>Golden Glove options</h2>
+              <p>Add goalkeepers only, one per line.</p>
+            </div>
+          </div>
+          <label>
+            Golden Glove goalkeeper list
+            <textarea
+              id="goldenGloveOptions"
+              rows="12"
+              placeholder="David Raya&#10;Alisson&#10;Jordan Pickford"
+              required
+            ></textarea>
+          </label>
+          <button class="button button-primary" type="submit">
+            Save Golden Glove list
+          </button>
+          <p id="goldenGloveOptionsMessage" role="status"></p>
         </form>
 
         <form id="resultsForm" class="panel wide"><h2>Current / final results</h2><p>Enter the current positions for live scoring. Tick final only when the official season results are settled.</p><div id="adminResultsFields" class="field-grid"></div><label><span><input id="resultsFinal" type="checkbox"> Mark these results as final</span></label><button class="button button-primary" type="submit">Save results and recalculate</button></form>
