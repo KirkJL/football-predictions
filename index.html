@@ -1,12 +1,126 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en-GB">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Football Predictions</title>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0b1020">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net; style-src 'self'; img-src 'self' data:; connect-src 'self' https://football-predictions-api.kirkjlemon.workers.dev https://login.microsoftonline.com; frame-src https://login.microsoftonline.com; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self' https://checkout.stripe.com; frame-ancestors 'none'; upgrade-insecure-requests">
+  <title>Sofaking Predictions</title>
+  <link rel="stylesheet" href="assets/css/styles.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@4.15.0/lib/msal-browser.min.js"></script>
+  <script defer src="assets/js/config.js"></script>
+  <script defer src="assets/js/api.js"></script>
+  <script defer src="assets/js/app.js"></script>
 </head>
 <body>
-  <h1>Football Predictions</h1>
-  <p>Website setup in progress.</p>
+  <div class="noise" aria-hidden="true"></div>
+  <header class="site-header">
+    <a class="brand" href="#home" aria-label="Sofaking Predictions home">
+      <span class="brand-mark">SP</span>
+      <span><strong>Sofaking</strong><small>Predictions</small></span>
+    </a>
+    <nav id="mainNav" class="main-nav" aria-label="Main navigation">
+      <button class="nav-button active" data-view="home">Home</button>
+      <button class="nav-button auth-only" data-view="predictions" hidden>Predictions</button>
+      <button class="nav-button auth-only" data-view="leaderboard" hidden>Leaderboard</button>
+      <button class="nav-button auth-only" data-view="live" hidden>Live</button>
+      <button class="nav-button admin-only" data-view="admin" hidden>Admin</button>
+    </nav>
+    <div class="account-actions">
+      <span id="accountName" class="account-name"></span>
+      <button id="signInButton" class="button button-primary">Sign in</button>
+      <button id="signOutButton" class="button button-ghost" hidden>Sign out</button>
+    </div>
+  </header>
+
+  <main>
+    <section id="view-home" class="view active">
+      <div class="hero shell">
+        <div class="hero-copy">
+          <p class="eyebrow">2026/2027 · £10 entry · top three paid</p>
+          <h1>One season.<br><span>Thirty-six points.</span><br>Zero excuses.</h1>
+          <p class="hero-text">Pick the Premier League top four, bottom three, individual awards and the major cup winners. Then watch the table move all season.</p>
+          <div class="hero-actions">
+            <button id="heroSignIn" class="button button-primary button-large">Enter the league</button>
+            <button class="button button-ghost button-large" data-view="leaderboard">View standings</button>
+          </div>
+        </div>
+        <aside class="hero-card">
+          <div class="status-row"><span>Competition</span><strong id="competitionName">Sofaking Predictions</strong></div>
+          <div class="status-row"><span>Season</span><strong id="competitionSeason">2026/2027</strong></div>
+          <div class="status-row"><span>Entry</span><strong>£10</strong></div>
+          <div class="status-row"><span>Prize split</span><strong>60 / 30 / 10</strong></div>
+          <div class="status-row"><span>Deadline</span><strong id="deadlineText">Waiting for fixture release</strong></div>
+          <div class="status-pill" id="competitionStatus">SETUP</div>
+        </aside>
+      </div>
+
+      <div class="shell stat-grid">
+        <article><strong>3</strong><span>points for exact</span></article>
+        <article><strong>1</strong><span>point for right team, wrong place</span></article>
+        <article><strong>36</strong><span>maximum score</span></article>
+        <article><strong>3</strong><span>prize positions</span></article>
+      </div>
+
+      <div class="shell panel rules-panel">
+        <div>
+          <p class="eyebrow">The card</p>
+          <h2>Twelve calls decide the year.</h2>
+        </div>
+        <div class="prediction-list">
+          <span>Premier League top four</span><b>4 picks</b>
+          <span>Premier League bottom three</span><b>3 picks</b>
+          <span>Golden Boot + Golden Glove</span><b>2 picks</b>
+          <span>FA Cup, League Cup, Champions League</span><b>3 picks</b>
+        </div>
+      </div>
+    </section>
+
+    <section id="view-predictions" class="view shell">
+      <div class="page-heading">
+        <div><p class="eyebrow">Your entry</p><h1>Make your predictions</h1></div>
+        <div id="entryBadge" class="status-pill">UNPAID</div>
+      </div>
+      <div id="paymentPanel" class="panel payment-panel">
+        <div><h2>Entry fee</h2><p>Pay securely through Stripe before submitting.</p></div>
+        <button id="payButton" class="button button-primary">Pay £10</button>
+      </div>
+      <form id="predictionForm" class="prediction-form" hidden>
+        <section class="panel"><div class="section-title"><span>01</span><div><h2>Premier League top four</h2><p>Three points for the exact place. One for the right team in the wrong top-four position.</p></div></div><div id="top4Fields" class="field-grid"></div></section>
+        <section class="panel"><div class="section-title"><span>02</span><div><h2>Premier League bottom three</h2><p>Choose 18th, 19th and 20th.</p></div></div><div id="bottom3Fields" class="field-grid"></div></section>
+        <section class="panel"><div class="section-title"><span>03</span><div><h2>Individual awards</h2></div></div><div class="field-grid two"><label>Golden Boot<select name="golden_boot" required></select></label><label>Golden Glove<select name="golden_glove" required></select></label></div></section>
+        <section class="panel"><div class="section-title"><span>04</span><div><h2>Cup winners</h2></div></div><div class="field-grid three"><label>FA Cup<select name="fa_cup" required></select></label><label>League Cup<select name="league_cup" required></select></label><label>Champions League<select name="champions_league" required></select></label></div></section>
+        <div class="form-footer"><p id="predictionMessage" role="status"></p><button class="button button-primary button-large" type="submit">Save predictions</button></div>
+      </form>
+    </section>
+
+    <section id="view-leaderboard" class="view shell">
+      <div class="page-heading"><div><p class="eyebrow">Season standings</p><h1>Leaderboard</h1></div><button id="refreshLeaderboard" class="button button-ghost">Refresh</button></div>
+      <div class="panel table-wrap"><table><thead><tr><th>#</th><th>Player</th><th>Score</th><th>Exact</th><th>Wrong place</th><th>Payment</th></tr></thead><tbody id="leaderboardBody"><tr><td colspan="6">Sign in to load the table.</td></tr></tbody></table></div>
+      <div id="revealedPredictions" class="panel revealed-panel"><h2>Everyone's predictions</h2><p>Hidden until the first match kicks off.</p></div>
+    </section>
+
+    <section id="view-live" class="view shell">
+      <div class="page-heading"><div><p class="eyebrow">Match centre</p><h1>Live season</h1></div><span id="liveUpdated">Not connected</span></div>
+      <div class="live-grid">
+        <section class="panel"><h2>Fixtures</h2><div id="fixturesList" class="fixture-list"><p>Live football data is not configured yet.</p></div></section>
+        <section class="panel"><h2>Premier League table</h2><div class="table-wrap"><table><thead><tr><th>#</th><th>Team</th><th>P</th><th>GD</th><th>Pts</th></tr></thead><tbody id="leagueTableBody"><tr><td colspan="5">No data</td></tr></tbody></table></div></section>
+      </div>
+    </section>
+
+    <section id="view-admin" class="view shell">
+      <div class="page-heading"><div><p class="eyebrow">Control room</p><h1>Admin</h1></div></div>
+      <div class="admin-grid">
+        <form id="scheduleForm" class="panel"><h2>Season opening</h2><label>First match kickoff<input id="firstKickoffInput" type="datetime-local" required></label><p>The deadline is calculated automatically as one hour before kickoff.</p><button class="button button-primary" type="submit">Open predictions</button></form>
+        <form id="teamOptionsForm" class="panel"><h2>Team options</h2><label>One team per line<textarea id="teamOptions" rows="12" required></textarea></label><button class="button button-primary" type="submit">Save teams</button></form>
+        <form id="playerOptionsForm" class="panel"><h2>Player options</h2><label>One player per line<textarea id="playerOptions" rows="12" required></textarea></label><button class="button button-primary" type="submit">Save players</button></form>
+        <form id="resultsForm" class="panel wide"><h2>Current / final results</h2><p>Enter the current positions for live scoring. Tick final only when the official season results are settled.</p><div id="adminResultsFields" class="field-grid"></div><label><span><input id="resultsFinal" type="checkbox"> Mark these results as final</span></label><button class="button button-primary" type="submit">Save results and recalculate</button></form>
+        <section class="panel wide"><h2>Entries</h2><div class="table-wrap"><table><thead><tr><th>Player</th><th>Email</th><th>Payment</th><th>Submitted</th><th></th></tr></thead><tbody id="adminEntriesBody"></tbody></table></div></section>
+      </div>
+      <p id="adminMessage" role="status"></p>
+    </section>
+  </main>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
 </body>
 </html>
