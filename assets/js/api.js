@@ -14,7 +14,14 @@ window.Api = class Api {
     try {
       response = await fetch(url, { ...options, headers });
     } catch (error) {
-      throw new Error(`Could not reach the API (${url}). Check the browser console for the blocked request details.`);
+      if (path === '/api/admin/options' && options.method === 'POST') {
+        try {
+          response = await fetch(url, { ...options, method: 'PUT', headers });
+        } catch {}
+      }
+      if (!response) {
+        throw new Error(`Could not reach the API (${url}) from ${location.origin} using ${options.method || 'GET'}. Check the browser console for the blocked request details.`);
+      }
     }
     let data = {};
     try { data = await response.json(); } catch { data = { error: 'The server returned an unreadable response.' }; }
