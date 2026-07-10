@@ -407,7 +407,7 @@
     }
 
     try {
-      await api.postPlainWithToken('/api/admin/options-plain', { type, values });
+      await api.postFormWithToken('/api/admin/options-plain', { type, values });
       updateAwardOptions(type, values);
       renderPredictionFields();
       message.textContent = `${values.length} ${label} options saved.`;
