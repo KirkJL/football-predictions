@@ -39,7 +39,9 @@
     if (account) await loadAuthenticatedState();
     const params = new URLSearchParams(location.search);
     if (params.get('payment') === 'success') toast('Payment completed. Stripe is confirming it now.');
-    if (params.has('payment')) history.replaceState({}, '', cfg.redirectUri);
+    if (params.get('adminSave') === 'success') toast(`${params.get('count') || '0'} ${params.get('label') || 'award'} options saved.`);
+    if (params.get('adminSave') === 'error') toast(params.get('message') || 'Could not save award options.', true);
+    if (params.has('payment') || params.has('adminSave')) history.replaceState({}, '', cfg.redirectUri);
   }
 
   function bindUi() {
@@ -248,7 +250,7 @@
     try {
       const data = await api.get('/api/live');
       $('liveUpdated').textContent = data.updatedAt ? `Updated ${formatDate(data.updatedAt)}` : data.message || 'Not connected';
-      $('fixturesList').innerHTML = data.fixtures?.length ? data.fixtures.map(f => `<div class="fixture"><div><strong>${escapeHtml(f.home)} vs ${escapeHtml(f.away)}</strong><small>Matchweek ${f.matchday || '-'}</small></div><div>${f.homeScore ?? ''}${f.homeScore != null ? '–' : ''}${f.awayScore ?? ''}<small>${escapeHtml(f.status)}</small></div></div>`).join('') : `<p>${escapeHtml(data.message || 'No fixtures available.')}</p>`;
+      $('fixturesList').innerHTML = data.fixtures?.length ? data.fixtures.map(f => `<div class="fixture"><div><strong>${escapeHtml(f.home)} vs ${escapeHtml(f.away)}</strong><small>Matchweek ${f.matchday || '-'} | ${escapeHtml(formatKickoff(f.utcDate))}</small></div></div>`).join('') : `<p>${escapeHtml(data.message || 'No fixtures available.')}</p>`;
       $('leagueTableBody').innerHTML = data.table?.length ? data.table.map(r => `<tr><td>${r.position}</td><td>${escapeHtml(r.team)}</td><td>${r.played}</td><td>${r.goalDifference}</td><td><strong>${r.points}</strong></td></tr>`).join('') : '<tr><td colspan="5">No table data.</td></tr>';
     } catch (error) { toast(error.message, true); }
   }
@@ -266,6 +268,9 @@
           ${['paid','waived'].includes(entry.payment_status)
             ? ''
             : `<button class="button button-ghost waive-button" data-entry="${entry.id}">Waive</button>`}
+          ${entry.payment_status === 'waived'
+            ? `<button class="button button-ghost revoke-waiver-button" data-entry="${entry.id}">Revoke waiver</button>`
+            : ''}
           ${entry.submitted_at
             ? `<button class="button button-ghost reset-predictions-button" data-entry="${entry.id}">Remove test submission</button>`
             : ''}
@@ -275,6 +280,10 @@
 
     qsa('.waive-button').forEach(button =>
       button.addEventListener('click', () => waivePayment(Number(button.dataset.entry)))
+    );
+
+    qsa('.revoke-waiver-button').forEach(button =>
+      button.addEventListener('click', () => revokeWaiver(Number(button.dataset.entry)))
     );
 
     qsa('.reset-predictions-button').forEach(button =>
@@ -407,19 +416,35 @@
     }
 
     try {
-      await api.post('/api/admin/options', { type, values });
-      updateAwardOptions(type, values);
-      renderPredictionFields();
-      message.textContent = `${values.length} ${label} options saved.`;
-      toast(`${label} list saved.`);
-
-      loadAdmin().catch(error => {
-        console.error(`${label} admin refresh failed`, error);
-      });
+      message.textContent = `Saving ${label} list...`;
+      await submitAwardOptionsForm(type, values);
     } catch (error) {
       message.textContent = error.message;
       toast(error.message, true);
     }
+  }
+
+  async function submitAwardOptionsForm(type, values) {
+    const token = await getToken();
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = `${cfg.apiBaseUrl}/api/admin/options-form`;
+    form.style.display = 'none';
+
+    [
+      ['accessToken', token],
+      ['type', type],
+      ['values', JSON.stringify(values)]
+    ].forEach(([name, value]) => {
+      const input = document.createElement('input');
+      input.type = 'hidden';
+      input.name = name;
+      input.value = value;
+      form.appendChild(input);
+    });
+
+    document.body.appendChild(form);
+    form.submit();
   }
 
   function updateAwardOptions(type, values) {
@@ -473,11 +498,23 @@
     catch (error) { toast(error.message, true); }
   }
 
+  async function revokeWaiver(entryId) {
+    if (!confirm('Revoke this waiver and mark the entry unpaid?')) return;
+    try {
+      await api.post('/api/admin/payments/revoke-waiver', { entryId });
+      toast('Waiver revoked.');
+      await loadAdmin();
+    } catch (error) {
+      toast(error.message, true);
+    }
+  }
+
   function labelCategory(category, position) {
     const labels = { top4: `Top four #${position}`, bottom3: `Bottom three #${position}`, golden_boot: 'Golden Boot', golden_glove: 'Golden Glove', fa_cup: 'FA Cup', league_cup: 'League Cup', champions_league: 'Champions League' };
     return labels[category] || category;
   }
   function formatDate(value) { return new Intl.DateTimeFormat('en-GB',{dateStyle:'medium',timeStyle:'short',timeZone:'Europe/London'}).format(new Date(value)); }
+  function formatKickoff(value) { return value ? new Intl.DateTimeFormat('en-GB',{dateStyle:'medium',timeStyle:'short',timeZone:'Europe/London'}).format(new Date(value)) : 'Kickoff TBC'; }
   function toLocalInput(value) { const d = new Date(value); const offset = d.getTimezoneOffset(); return new Date(d.getTime()-offset*60000).toISOString().slice(0,16); }
   function slugify(value) { return String(value || '').normalize('NFKD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/&/g, ' and ').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 100); }
   function escapeHtml(value) { return String(value ?? '').replace(/[&<>'"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c])); }
